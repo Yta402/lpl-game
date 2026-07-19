@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Phase, Player, GameSave, AttrKey, Position, Strat } from "../types";
+import type { Phase, Player, GameSave, AttrKey, Position, SeriesResult, Standing, Strat } from "../types";
 import {
   loadSave,
   writeSave,
@@ -8,11 +8,28 @@ import {
 } from "../utils/storage";
 import { rollInheritancePool, type PoolEntry } from "../data/pool";
 import { getTeam, getLplTeams } from "../data/teams";
-import { createCustomPlayer } from "../engine/customPlayer";
+import { createCustomPlayer, growPlayer } from "../engine/customPlayer";
 import { applySlots, weakestAttr, type Slots } from "../engine/inheritance";
+import {
+  simulateWorldsGroups,
+  createKnockoutSession,
+  stepKnockout,
+  chooseKnockoutStrat,
+  buildWorldsResult,
+  type KnockoutSession,
+} from "../engine/season";
+import type { SeasonResult } from "../types";
 
 const POOL_SIZE = 9; // 9 属性 ↔ 9 位候选选手
 const REROLL_INITIAL = 1;
+
+/** 世界赛淘汰赛进行中的实时状态（不持久化：中途退出则世界赛重来） */
+interface WorldsLive {
+  playerGroupStandings: Standing[] | null;
+  regularGames: SeriesResult[];
+  advanced: boolean;
+  session: KnockoutSession;
+}
 
 interface GameState {
   phase: Phase;
@@ -25,7 +42,9 @@ interface GameState {
   idx: number; // 当前候选序号 0..POOL_SIZE（=POOL_SIZE 表示已结束）
   slots: Slots; // 已继承的属性槽（有值=已锁定）
   rerollsLeft: number;
-  decisiveStrat: Strat; // MSI/世界赛关键局（BO5 赛点局）玩家选择的策略
+
+  // 世界赛淘汰赛实时会话（决胜局策略彩蛋用；不进存档）
+  worldsLive: WorldsLive | null;
 
   // ---------- actions ----------
   init: () => void;
@@ -45,7 +64,13 @@ interface GameState {
   pickAttr: (entry: PoolEntry, attr: AttrKey, override: boolean) => void;
   skipCurrent: () => void;
   applyInheritance: () => void;
-  setDecisiveStrat: (strat: Strat) => void;
+
+  // 世界赛淘汰赛（交互式，决胜局策略彩蛋）
+  startWorlds: (lplSeeds: string[]) => void;
+  stepWorlds: () => void;
+  chooseWorldsStrat: (strat: Strat) => void;
+  /** 内部：淘汰赛会话推进后的收尾（未完赛更新 live，完赛写存档） */
+  _finishWorlds: (live: WorldsLive) => void;
 
   // 选战队
   joinTeam: (teamId: string) => void;
@@ -66,7 +91,7 @@ export const useGame = create<GameState>((set, get) => ({
   idx: 0,
   slots: {},
   rerollsLeft: REROLL_INITIAL,
-  decisiveStrat: "none",
+  worldsLive: null,
 
   init: () => {
     set({ hasExistingSave: hasSave() });
@@ -82,7 +107,7 @@ export const useGame = create<GameState>((set, get) => ({
       idx: 0,
       slots: {},
       rerollsLeft: REROLL_INITIAL,
-      decisiveStrat: "none",
+      worldsLive: null,
       hasExistingSave: false,
     });
   },
@@ -171,7 +196,73 @@ export const useGame = create<GameState>((set, get) => ({
     set({ draftPlayer: player, phase: "select-team" });
   },
 
-  setDecisiveStrat: (strat) => set({ decisiveStrat: strat }),
+  // ---------- 世界赛淘汰赛（交互式） ----------
+  startWorlds: (lplSeeds) => {
+    const { save } = get();
+    if (!save) return;
+    const team = getTeam(save.teamId);
+    const groups = simulateWorldsGroups(team, save.customPlayer, lplSeeds);
+    set({
+      worldsLive: {
+        playerGroupStandings: groups.playerGroupStandings,
+        regularGames: groups.playerSeries,
+        advanced: groups.advanced,
+        session: createKnockoutSession(groups.bracket),
+      },
+    });
+  },
+
+  stepWorlds: () => {
+    const { save, worldsLive } = get();
+    if (!save || !worldsLive || worldsLive.session.pending) return;
+    const team = getTeam(save.teamId);
+    const session = stepKnockout(worldsLive.session, team, save.customPlayer);
+    get()._finishWorlds({ ...worldsLive, session });
+  },
+
+  chooseWorldsStrat: (strat) => {
+    const { save, worldsLive } = get();
+    if (!save || !worldsLive || !worldsLive.session.pending) return;
+    const team = getTeam(save.teamId);
+    const session = chooseKnockoutStrat(worldsLive.session, team, save.customPlayer, strat);
+    get()._finishWorlds({ ...worldsLive, session });
+  },
+
+  /** 内部：会话推进后收尾——未完赛则更新 live，完赛则写入存档并结算成长 */
+  _finishWorlds: (live: WorldsLive) => {
+    const { save } = get();
+    if (!save) return;
+    if (!live.session.done) {
+      set({ worldsLive: live });
+      return;
+    }
+    const team = getTeam(save.teamId);
+    const result: SeasonResult = buildWorldsResult(
+      team,
+      save.customPlayer,
+      {
+        playerSeries: live.regularGames,
+        playerGroupStandings: live.playerGroupStandings,
+        advanced: live.advanced,
+      },
+      live.session,
+    );
+    // 成长：与 SeasonHub 同一规则（小组赛 + 淘汰赛全部系列的场均评分）
+    const allSeries = [...live.regularGames, ...result.playoffGames];
+    const games = allSeries.flatMap((s) => s.games);
+    const avg =
+      games.length === 0
+        ? 0
+        : games.reduce((s, g) => s + g.rating, 0) / games.length;
+    const grown = growPlayer(save.customPlayer, avg);
+    const next: GameSave = {
+      ...save,
+      customPlayer: grown,
+      career: { ...save.career, worlds: result },
+    };
+    writeSave(next);
+    set({ save: next, worldsLive: null });
+  },
 
   joinTeam: (teamId) => {
     const { draftPlayer } = get();
@@ -218,7 +309,7 @@ export const useGame = create<GameState>((set, get) => ({
       idx: 0,
       slots: {},
       rerollsLeft: REROLL_INITIAL,
-      decisiveStrat: "none",
+      worldsLive: null,
       hasExistingSave: false,
     });
   },

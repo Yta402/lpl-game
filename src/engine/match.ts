@@ -1,4 +1,4 @@
-import type { GameResult, KDA, Player, PlayerSeriesStat, SeriesResult, Team, Strat } from '../types';
+import type { GameResult, KDA, Player, PlayerGameStat, PlayerSeriesStat, SeriesResult, Team, Strat } from '../types';
 import { RANDOM_VARIANCE } from '../constants';
 import { gaussian, randInt, chance } from '../utils/random';
 import { clamp } from '../utils/clamp';
@@ -74,6 +74,52 @@ export function simulateGame(opts: GameOpts): GameResult {
   };
   const events = generateEvents(ctx);
 
+  // 本局全员数据：自建选手用主结果，其余 9 人简化生成（团战游龙时队友同享加成）
+  const noneMods: AttrMods = { strat: 'none', solokill: false, teamfightCarry: false };
+  const mateMods: AttrMods = teamfightCarry
+    ? { ...noneMods, teamfightCarry: true }
+    : noneMods;
+  const stats: PlayerGameStat[] = [
+    {
+      playerId: customPlayer.id,
+      name: customPlayer.name,
+      teamId: myTeam.id,
+      position: customPlayer.position,
+      kills: kda.kills,
+      deaths: kda.deaths,
+      assists: kda.assists,
+      rating,
+    },
+    ...myTeam.roster
+      .filter((p) => p.position !== customPlayer.position)
+      .map((p) => {
+        const perf = genPerformance(p, mateMods, isWin);
+        return {
+          playerId: p.id,
+          name: p.name,
+          teamId: myTeam.id,
+          position: p.position,
+          kills: perf.kda.kills,
+          deaths: perf.kda.deaths,
+          assists: perf.kda.assists,
+          rating: perf.rating,
+        };
+      }),
+    ...enemyTeam.roster.map((p) => {
+      const perf = genPerformance(p, noneMods, !isWin);
+      return {
+        playerId: p.id,
+        name: p.name,
+        teamId: enemyTeam.id,
+        position: p.position,
+        kills: perf.kda.kills,
+        deaths: perf.kda.deaths,
+        assists: perf.kda.assists,
+        rating: perf.rating,
+      };
+    }),
+  ];
+
   return {
     isWin,
     kda,
@@ -83,6 +129,7 @@ export function simulateGame(opts: GameOpts): GameResult {
     solokillTriggered: solokill,
     teamfightCarryTriggered: teamfightCarry,
     duration: randInt(26, 42),
+    stats,
   };
 }
 
@@ -135,6 +182,37 @@ function genPerformance(
 // ============================================
 // 系列赛（BO1/BO3/BO5）
 // ============================================
+
+/** 把若干局的 10 人数据聚合为系列赛战绩表（KDA 累计、评分取场均） */
+export function aggregateBoard(games: GameResult[]): PlayerSeriesStat[] {
+  const agg = new Map<string, PlayerSeriesStat>();
+  for (const g of games) {
+    for (const s of g.stats ?? []) {
+      const cur = agg.get(s.playerId) ?? {
+        playerId: s.playerId,
+        name: s.name,
+        teamId: s.teamId,
+        position: s.position,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        games: 0,
+        rating: 0,
+      };
+      cur.kills += s.kills;
+      cur.deaths += s.deaths;
+      cur.assists += s.assists;
+      cur.games += 1;
+      cur.rating += s.rating;
+      agg.set(s.playerId, cur);
+    }
+  }
+  return [...agg.values()].map((s) => ({
+    ...s,
+    rating: Math.round((s.rating / (s.games || 1)) * 10) / 10,
+  }));
+}
+
 export interface SeriesOpts {
   bestOf: 1 | 3 | 5;
   myTeam: Team;
@@ -150,32 +228,6 @@ export function simulateSeries(opts: SeriesOpts): SeriesResult {
   let enWin = 0;
   let stratUsed = false;
   const games: GameResult[] = [];
-
-  // 全员战绩统计：自建选手 + 4 名队友 + 敌方 5 人
-  const teammates = opts.myTeam.roster.filter(
-    (p) => p.position !== opts.customPlayer.position,
-  );
-  const noneMods: AttrMods = { strat: 'none', solokill: false, teamfightCarry: false };
-  const agg = new Map<string, PlayerSeriesStat>();
-  const bump = (p: Player, teamId: string, kda: KDA, rating: number) => {
-    const cur = agg.get(p.id) ?? {
-      playerId: p.id,
-      name: p.name,
-      teamId,
-      position: p.position,
-      kills: 0,
-      deaths: 0,
-      assists: 0,
-      games: 0,
-      rating: 0,
-    };
-    cur.kills += kda.kills;
-    cur.deaths += kda.deaths;
-    cur.assists += kda.assists;
-    cur.games += 1;
-    cur.rating += rating;
-    agg.set(p.id, cur);
-  };
 
   let guard = 0;
   while (myWin < need && enWin < need && guard < 10) {
@@ -196,27 +248,7 @@ export function simulateSeries(opts: SeriesOpts): SeriesResult {
     games.push(g);
     if (g.isWin) myWin++;
     else enWin++;
-
-    // 累计全员战绩（自建选手直接用当局结果；其余 9 人简化生成）
-    bump(opts.customPlayer, opts.myTeam.id, g.kda, g.rating);
-    for (const p of teammates) {
-      // 团战游龙 = 4 队友 carry，给他们同样的评分加成
-      const mods: AttrMods = g.teamfightCarryTriggered
-        ? { ...noneMods, teamfightCarry: true }
-        : noneMods;
-      const perf = genPerformance(p, mods, g.isWin);
-      bump(p, opts.myTeam.id, perf.kda, perf.rating);
-    }
-    for (const p of opts.enemyTeam.roster) {
-      const perf = genPerformance(p, noneMods, !g.isWin);
-      bump(p, opts.enemyTeam.id, perf.kda, perf.rating);
-    }
   }
-
-  const board: PlayerSeriesStat[] = [...agg.values()].map((s) => ({
-    ...s,
-    rating: Math.round((s.rating / (s.games || 1)) * 10) / 10,
-  }));
 
   return {
     bestOf: opts.bestOf,
@@ -225,6 +257,6 @@ export function simulateSeries(opts: SeriesOpts): SeriesResult {
     myWin,
     enWin,
     isWin: myWin > enWin,
-    board,
+    board: aggregateBoard(games),
   };
 }

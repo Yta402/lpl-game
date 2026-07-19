@@ -7,7 +7,17 @@ import {
   checkTeamfightCarry,
 } from '../breakthrough';
 import { calcWinRate, simulateGame, simulateSeries } from '../match';
-import { teamBasePower, simulateSpring, simulateSummer, simulateMsi, simulateWorlds } from '../season';
+import {
+  teamBasePower,
+  simulateSpring,
+  simulateSummer,
+  simulateMsi,
+  simulateWorlds,
+  simulateWorldsGroups,
+  createKnockoutSession,
+  stepKnockout,
+  chooseKnockoutStrat,
+} from '../season';
 import { TEAMS, getLplTeams } from '../../data/teams';
 import { createCustomPlayer } from '../customPlayer';
 import type { Attributes } from '../../types';
@@ -178,5 +188,125 @@ describe('数据完整性（防头像色哈希负数崩溃回归）', () => {
         expect(p.avatarColor, `${t.name}/${p.name}`).toMatch(/^#[0-9a-fA-F]{3,8}$/);
       }
     }
+  });
+});
+
+describe('逐场模拟时间线与全员战绩', () => {
+  it('每局生成双方 10 名选手数据（stats）', () => {
+    const my = getLplTeams()[0];
+    const enemy = getLplTeams()[1];
+    const player = createCustomPlayer({ name: 'X', position: 'mid', gender: 'male' });
+    const s = simulateSeries({ bestOf: 3, myTeam: my, enemyTeam: enemy, customPlayer: player });
+    expect(s.games.length).toBeGreaterThan(0);
+    for (const g of s.games) {
+      expect(g.stats).toHaveLength(10);
+    }
+    // 系列赛 board：10 人、含自建选手、出场局数一致
+    expect(s.board).toHaveLength(10);
+    const me = s.board!.find((b) => b.playerId === player.id);
+    expect(me).toBeDefined();
+    expect(me!.games).toBe(s.games.length);
+    // KDA 累计 = 每局之和
+    const kSum = s.games.reduce((sum, g) => sum + g.kda.kills, 0);
+    expect(me!.kills).toBe(kSum);
+  });
+
+  it('春季赛季后赛 timeline：3 场，半决赛×2 + 决赛×1，比分与胜负一致', () => {
+    const my = getLplTeams()[0];
+    const player = createCustomPlayer({ name: 'X', position: 'mid', gender: 'male' });
+    const r = simulateSpring(my, player);
+    expect(r.timeline).toHaveLength(3);
+    expect(r.timeline!.map((m) => m.label)).toEqual(['半决赛', '半决赛', '决赛']);
+    for (const m of r.timeline!) {
+      const loserScore = Math.min(m.winA, m.winB);
+      const winnerScore = Math.max(m.winA, m.winB);
+      expect(winnerScore).toBe(3); // BO5 先拿 3 局
+      expect(loserScore).toBeLessThan(3);
+      const winnerScoreIsA = m.winA === winnerScore;
+      expect(m.winnerId).toBe(winnerScoreIsA ? m.teamAId : m.teamBId);
+    }
+  });
+
+  it('MSI timeline：7 场，顺序为 1/4×4 → 半决赛×2 → 决赛×1', () => {
+    const my = getLplTeams()[0];
+    const player = createCustomPlayer({ name: 'X', position: 'adc', gender: 'male' });
+    const r = simulateMsi(my, player, [my.id, getLplTeams()[1].id], 'none');
+    expect(r.timeline).toHaveLength(7);
+    expect(r.timeline!.map((m) => m.label)).toEqual([
+      '1/4 决赛', '1/4 决赛', '1/4 决赛', '1/4 决赛',
+      '半决赛', '半决赛',
+      '决赛',
+    ]);
+  });
+
+  it('世界赛淘汰赛交互会话：逐步推进至完赛，共 7 场，冠军有效', () => {
+    const my = getLplTeams()[0];
+    const player = createCustomPlayer({ name: 'X', position: 'mid', gender: 'male' });
+    const seeds = getLplTeams().slice(0, 8).map((t) => t.id);
+    let session = createKnockoutSession(seeds);
+    let guard = 0;
+    while (!session.done && guard < 20) {
+      guard++;
+      session = session.pending
+        ? chooseKnockoutStrat(session, my, player, 'challenge')
+        : stepKnockout(session, my, player);
+    }
+    expect(session.done).toBe(true);
+    expect(session.matches).toHaveLength(7);
+    expect(session.championId).toBeTruthy();
+    expect(seeds).toContain(session.championId);
+    expect(session.matches.map((m) => m.label)).toEqual([
+      '1/4 决赛', '1/4 决赛', '1/4 决赛', '1/4 决赛',
+      '半决赛', '半决赛',
+      '决赛',
+    ]);
+    // 玩家参与的系列都记录了 board
+    for (const s of session.playerSeries) {
+      expect(s.board).toHaveLength(10);
+    }
+  });
+
+  it('pending 只在玩家系列赛 2:2 时出现，且决胜局会应用所选策略', () => {
+    const my = getLplTeams()[0];
+    const player = createCustomPlayer({ name: 'X', position: 'mid', gender: 'male' });
+    const seeds = [my.id, ...getLplTeams().slice(1, 8).map((t) => t.id)];
+    // 跑多个会话，直到遇到一次 2:2（概率较高）；验证 pending 结构与选择后完赛
+    let sawPending = false;
+    for (let attempt = 0; attempt < 30 && !sawPending; attempt++) {
+      let session = createKnockoutSession(seeds);
+      let guard = 0;
+      while (!session.done && guard < 20) {
+        guard++;
+        if (session.pending) {
+          sawPending = true;
+          expect(session.pending.games).toHaveLength(4);
+          const wins = session.pending.games.filter((g) => g.isWin).length;
+          expect(wins).toBe(2);
+          session = chooseKnockoutStrat(session, my, player, 'challenge');
+          // 决胜局（第 5 局）应记录所选的亮剑策略
+          const last = session.matches[session.matches.length - 1];
+          const g5 = last.series!.games[4];
+          expect(g5.strat).toBe('challenge');
+        } else {
+          session = stepKnockout(session, my, player);
+        }
+      }
+      expect(session.done).toBe(true);
+    }
+    // 30 次尝试中至少应遇到一次 2:2；若极端未遇到，至少保证流程可完赛
+    expect(sawPending).toBe(true);
+  });
+
+  it('simulateWorlds（兼容包装）与小组赛拆分结果一致', () => {
+    const my = getLplTeams()[0];
+    const player = createCustomPlayer({ name: 'X', position: 'mid', gender: 'male' });
+    const seeds = getLplTeams().slice(0, 4).map((t) => t.id);
+    const groups = simulateWorldsGroups(my, player, seeds);
+    expect(groups.bracket).toHaveLength(8);
+    expect(groups.playerGroupStandings).not.toBeNull();
+    expect(groups.playerSeries.length).toBe(3); // 小组单循环 3 场
+    const r = simulateWorlds(my, player, seeds, 'none');
+    expect(r.timeline!.length).toBe(7);
+    expect(r.groupStandings).toBeDefined();
   });
 });

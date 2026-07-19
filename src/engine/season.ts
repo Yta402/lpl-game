@@ -10,9 +10,10 @@ import type {
   Tournament,
   Award,
   MatchRecord,
+  GameResult,
 } from '../types';
 import { TEAMS, TEAM_BY_ID, getTeam, getLplTeams } from '../data/teams';
-import { simulateSeries, type SeriesOpts } from './match';
+import { simulateSeries, simulateGame, aggregateBoard, type SeriesOpts } from './match';
 import { calcTeamPower, calcPlayerPower } from './power';
 import { FMVP_PLAYER_RATING, MVP_PLAYER_RATING } from '../constants';
 
@@ -583,12 +584,17 @@ export interface WorldsResult extends SeasonResult {
   groupStandings?: Standing[];
 }
 
-export function simulateWorlds(
+/** 世界赛小组赛阶段：分组 + 各组单循环，返回玩家组数据与 8 强对阵 */
+export function simulateWorldsGroups(
   myTeam: Team,
   customPlayer: Player,
   lplSeeds: string[], // LPL 年度 top4
-  decisiveStrat: Strat = 'none',
-): WorldsResult {
+): {
+  playerSeries: SeriesResult[];
+  playerGroupStandings: Standing[] | null;
+  advanced: boolean;
+  bracket: string[]; // 8 强淘汰赛种子（跨组对阵顺序）
+} {
   const lpl = lplSeeds.slice(0, 4);
   const lck = topNByRegion('LCK', 4);
   const lec = topNByRegion('LEC', 3);
@@ -630,20 +636,221 @@ export function simulateWorlds(
   // 8 强淘汰赛：A1-B2, C1-D2, B1-A2, D1-C2（跨组对阵）
   const [A, B, C, D] = groupTop2;
   const bracket = [A[0], B[1], C[0], D[1], B[0], A[1], D[0], C[1]];
-  const timeline: MatchRecord[] = [];
-  const rec: MatchRecorder = { record: (m) => timeline.push(m) };
-  const r = runSingleElim(myTeam, customPlayer, bracket, 5, decisiveStrat, rec);
 
+  return { playerSeries, playerGroupStandings, advanced, bracket };
+}
+
+// ============================================
+// 世界赛淘汰赛：交互式会话
+// 一场一场真实模拟；玩家系列赛打到 2:2 时暂停（pending），
+// 等玩家选择 亮剑/奉献/常规 后再模拟决胜局 —— 策略是彩蛋，不是常驻选项。
+// ============================================
+export interface PendingDecisive {
+  label: string; // 轮次名（1/4 决赛 / 半决赛 / 决赛）
+  teamAId: string;
+  teamBId: string;
+  enemyId: string; // 对手（玩家视角）
+  games: GameResult[]; // 前 4 局（2:2）
+}
+
+export interface KnockoutSession {
+  seeds: string[]; // 8 队
+  matches: MatchRecord[]; // 已完成，按真实顺序
+  pending: PendingDecisive | null; // 等待玩家抉择的决胜局
+  done: boolean;
+  championId: string | null;
+  runnerUpId: string | null;
+  playerSeries: SeriesResult[]; // 玩家参与的系列（按顺序）
+}
+
+export function createKnockoutSession(seeds: string[]): KnockoutSession {
+  return {
+    seeds: seeds.slice(),
+    matches: [],
+    pending: null,
+    done: false,
+    championId: null,
+    runnerUpId: null,
+    playerSeries: [],
+  };
+}
+
+/** 由已完成比赛推算当前轮次的下一场对阵（单败：按顺序两两配对，胜者晋级） */
+function knockoutNextMatch(
+  seeds: string[],
+  matches: MatchRecord[],
+): { aId: string; bId: string; bracketSize: number } | null {
+  let bracket = seeds.slice();
+  let consumed = 0;
+  while (bracket.length > 1) {
+    const pairs = bracket.length / 2;
+    if (matches.length < consumed + pairs) {
+      const i = matches.length - consumed;
+      return { aId: bracket[i * 2], bId: bracket[i * 2 + 1], bracketSize: bracket.length };
+    }
+    bracket = matches.slice(consumed, consumed + pairs).map((m) => m.winnerId);
+    consumed += pairs;
+  }
+  return null;
+}
+
+function knockoutLabel(bracketSize: number): string {
+  return bracketSize === 2 ? '决赛' : bracketSize === 4 ? '半决赛' : '1/4 决赛';
+}
+
+function appendKnockoutMatch(
+  session: KnockoutSession,
+  m: MatchRecord,
+  series?: SeriesResult,
+): KnockoutSession {
+  const matches = [...session.matches, m];
+  const playerSeries = series ? [...session.playerSeries, series] : session.playerSeries;
+  const done = knockoutNextMatch(session.seeds, matches) === null;
+  const loserId = m.winnerId === m.teamAId ? m.teamBId : m.teamAId;
+  return {
+    ...session,
+    matches,
+    playerSeries,
+    pending: null,
+    done,
+    championId: done ? m.winnerId : null,
+    runnerUpId: done ? loserId : null,
+  };
+}
+
+function playerSeriesOf(opponentId: string, games: GameResult[]): SeriesResult {
+  const myWin = games.filter((g) => g.isWin).length;
+  const enWin = games.length - myWin;
+  return {
+    bestOf: 5,
+    opponentId,
+    games,
+    myWin,
+    enWin,
+    isWin: myWin > enWin,
+    board: aggregateBoard(games),
+  };
+}
+
+function playerMatchRecord(
+  label: string,
+  aId: string,
+  bId: string,
+  myTeamId: string,
+  series: SeriesResult,
+): MatchRecord {
+  const playerIsA = aId === myTeamId;
+  return {
+    stage: 'playoff',
+    label,
+    teamAId: aId,
+    teamBId: bId,
+    bestOf: 5,
+    winA: playerIsA ? series.myWin : series.enWin,
+    winB: playerIsA ? series.enWin : series.myWin,
+    winnerId: series.isWin ? myTeamId : playerIsA ? bId : aId,
+    series,
+  };
+}
+
+/**
+ * 推进一场淘汰赛。
+ * - AI 对阵：直接模拟整场并推进
+ * - 玩家对阵：最多模拟 4 局；3:0/3:1 直接结束，2:2 则置 pending 等待玩家抉择
+ */
+export function stepKnockout(
+  session: KnockoutSession,
+  myTeam: Team,
+  customPlayer: Player,
+): KnockoutSession {
+  if (session.done || session.pending) return session;
+  const next = knockoutNextMatch(session.seeds, session.matches);
+  if (!next) return { ...session, done: true };
+  const { aId, bId, bracketSize } = next;
+  const label = knockoutLabel(bracketSize);
+  const playerIn = aId === myTeam.id || bId === myTeam.id;
+
+  if (!playerIn) {
+    const a = getTeam(aId);
+    const b = getTeam(bId);
+    const s = simAiSeries(a, b, 5);
+    return appendKnockoutMatch(session, {
+      stage: 'playoff',
+      label,
+      teamAId: aId,
+      teamBId: bId,
+      bestOf: 5,
+      winA: s.myWin,
+      winB: s.enWin,
+      winnerId: s.isWin ? aId : bId,
+    });
+  }
+
+  const enemyId = aId === myTeam.id ? bId : aId;
+  const enemy = getTeam(enemyId);
+  const games: GameResult[] = [];
+  let myWin = 0;
+  let enWin = 0;
+  while (myWin < 3 && enWin < 3 && games.length < 4) {
+    const g = simulateGame({ myTeam, enemyTeam: enemy, customPlayer, strat: 'none' });
+    games.push(g);
+    if (g.isWin) myWin++;
+    else enWin++;
+  }
+
+  if (myWin === 2 && enWin === 2) {
+    // 战歌起：决胜局交给玩家抉择
+    return { ...session, pending: { label, teamAId: aId, teamBId: bId, enemyId, games } };
+  }
+
+  const series = playerSeriesOf(enemyId, games);
+  return appendKnockoutMatch(
+    session,
+    playerMatchRecord(label, aId, bId, myTeam.id, series),
+    series,
+  );
+}
+
+/** 玩家在决胜局选择策略后，模拟第五局并完成该系列赛 */
+export function chooseKnockoutStrat(
+  session: KnockoutSession,
+  myTeam: Team,
+  customPlayer: Player,
+  strat: Strat,
+): KnockoutSession {
+  if (!session.pending) return session;
+  const { label, teamAId, teamBId, enemyId, games } = session.pending;
+  const g5 = simulateGame({ myTeam, enemyTeam: getTeam(enemyId), customPlayer, strat });
+  const series = playerSeriesOf(enemyId, [...games, g5]);
+  return appendKnockoutMatch(
+    session,
+    playerMatchRecord(label, teamAId, teamBId, myTeam.id, series),
+    series,
+  );
+}
+
+/** 由小组赛结果 + 完成的淘汰赛会话组装最终 WorldsResult */
+export function buildWorldsResult(
+  myTeam: Team,
+  customPlayer: Player,
+  groups: {
+    playerSeries: SeriesResult[];
+    playerGroupStandings: Standing[] | null;
+    advanced: boolean;
+  },
+  session: KnockoutSession,
+): WorldsResult {
+  const { playerGroupStandings, advanced } = groups;
   let finalRank: number;
   if (!advanced) {
     finalRank = playerGroupStandings
       ? playerGroupStandings.findIndex((s) => s.teamId === myTeam.id) + 1
       : 0;
-  } else if (r.championId === myTeam.id) {
+  } else if (session.championId === myTeam.id) {
     finalRank = 1;
-  } else if (r.playerEliminatedInFinal) {
+  } else if (session.runnerUpId === myTeam.id) {
     finalRank = 2;
-  } else if (r.playerSeries.length >= 2) {
+  } else if (session.playerSeries.length >= 2) {
     finalRank = 3; // 半决赛
   } else {
     finalRank = 5; // 1/4 决赛
@@ -651,15 +858,36 @@ export function simulateWorlds(
 
   return {
     tournament: 'worlds',
-    regularGames: playerSeries,
-    playoffGames: r.playerSeries,
+    regularGames: groups.playerSeries,
+    playoffGames: session.playerSeries,
     finalRank,
     qualified: advanced,
-    champion: r.championId === myTeam.id,
+    champion: session.championId === myTeam.id,
     groupStandings: playerGroupStandings ?? undefined,
-    awards: [finalsMvp('worlds', r.championId, r.playerSeries, myTeam, customPlayer)],
-    timeline,
+    awards: [
+      finalsMvp('worlds', session.championId ?? '', session.playerSeries, myTeam, customPlayer),
+    ],
+    timeline: session.matches,
   };
+}
+
+/** 一次性跑完世界赛（测试/兼容用；决胜局策略自动按 'none' 处理） */
+export function simulateWorlds(
+  myTeam: Team,
+  customPlayer: Player,
+  lplSeeds: string[],
+  decisiveStrat: Strat = 'none',
+): WorldsResult {
+  const groups = simulateWorldsGroups(myTeam, customPlayer, lplSeeds);
+  let session = createKnockoutSession(groups.bracket);
+  let guard = 0;
+  while (!session.done && guard < 20) {
+    guard++;
+    session = session.pending
+      ? chooseKnockoutStrat(session, myTeam, customPlayer, decisiveStrat)
+      : stepKnockout(session, myTeam, customPlayer);
+  }
+  return buildWorldsResult(myTeam, customPlayer, groups, session);
 }
 
 /** 某赛区按基础战力取前 n 名（其他赛区直接凭战力进入 MSI/世界赛） */

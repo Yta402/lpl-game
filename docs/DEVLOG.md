@@ -1,6 +1,6 @@
 # LPL 自建选手模拟器 — 开发日志
 
-> 最后更新：2026-07-19 | 版本状态：24 测试通过 / 构建通过 / 可玩
+> 最后更新：2026-07-20 | 版本状态：30 测试通过 / 构建通过 / 可玩
 
 ---
 
@@ -10,6 +10,14 @@
 - 每次开发结束，在本节**最顶部**加一条当日条目：做了什么、遇到什么问题、根因、怎么修、怎么验证的。保持在 5–15 行。
 - 如果某个问题排查过程较长，单独建 `docs/debug-log-<问题名>.md` 写完整复盘，条目里只留一段摘要 + 链接。
 - 本文档其余章节（结构地图、公式、修改手册）是“现状文档”：改代码时**就地更新为最新状态**，不留历史；历史只留在本节。
+
+### 2026-07-20 — 赛季模拟界面：战绩可见 + 季后赛逐场模拟 + 决胜局策略彩蛋
+
+- **做了什么**：① 每个赛事详情顶部新增战绩条（常规赛/小组赛 X胜Y负 + 淘汰赛 X胜Y负）；② 季后赛/淘汰赛改为逐场模拟——按真实顺序一场一场揭示对阵、比分；③ 玩家参与的系列赛展示双方 10 人战绩表（K/D/A 累计 + 场均评分，`SeriesBoard`）；④ 亮剑/奉献从常驻选项改为彩蛋：世界赛淘汰赛玩家系列赛打到 2:2 时弹出抉择框（亮剑/奉献/常规），选完才模拟第五局。
+- **架构**：春/夏/MSI 仍为“预计算 + UI 逐步揭示”（`SeasonResult.timeline` 按顺序记录每场 `MatchRecord`，`PlayoffStepper` 回放模式）；世界赛淘汰赛的第五局结果取决于玩家选择，不能预计算，改为**交互式会话**（`season.ts` 的 `createKnockoutSession/stepKnockout/chooseKnockoutStrat`：一场一场真实模拟，2:2 时置 `pending` 暂停）。会话存于 zustand `worldsLive`，**不持久化——中途关页面则世界赛重来**（已知取舍）。
+- **引擎改动**：`simulateGame` 每局生成 10 人 `stats`；`SeriesResult.board` 由 `aggregateBoard(games)` 聚合；`runSingleElim/runDoubleElim6` 记录带轮次标签的 timeline；`simulateWorlds` 拆为 `simulateWorldsGroups` + 会话 + `buildWorldsResult`（原函数保留为兼容包装）。
+- **移除**：SeasonHub 常驻 `StratPicker` 及 store 的 `decisiveStrat`（MSI 固定 'none'）。
+- **验证**：新增 6 个引擎测试（10 人 stats、board 聚合、春/MSI timeline 标签与比分、会话完赛、pending 只在 2:2 触发且决胜局应用所选策略）；30/30 通过。puppeteer 端到端两轮：全流程（创建→继承→选队→春→MSI→夏→世界赛）逐场模拟正常，第二轮成功触发 2:2 弹窗并选择亮剑，无 pageerror。dist 已重建。
 
 ### 2026-07-19 — 继承页卡死：三轮排查，根因是头像色哈希负数
 
@@ -48,26 +56,29 @@ src/
 │   ├── power.ts                # 单人战力 / 战队战力 / 协同 / 风格契合
 │   ├── breakthrough.ts         # 亮剑·奉献 策略系统 / 单线击穿·团战游龙判定
 │   ├── match.ts                # 单局模拟 / KDA/评分 / BO 系列赛
-│   ├── season.ts               # 赛季编排（春/MSI/夏/世界）+ 积分 + 抽签 + 奖项
+│   ├── season.ts               # 赛季编排（春/MSI/夏/世界）+ 积分 + 抽签 + 奖项 + 世界赛淘汰赛交互会话
 │   ├── inheritance.ts          # 继承 v2：槽位混合 / 最弱项查找
 │   ├── customPlayer.ts         # 自建选手基础属性 / 赛季成长
 │   ├── events.ts               # 事件文字模板（播报用）
 │   └── __tests__/engine.test.ts
 ├── store/gameStore.ts          # ★ Zustand：游戏阶段 FSM + 全局状态
 ├── components/                 # 可复用 UI
-│   ├── Avatar.tsx              # 程序生成几何头像（无真人照片）
+│   ├── Avatar.tsx              # 程序生成几何头像（无真人照片；color 缺失时灰色兜底）
 │   ├── AttrBar.tsx             # 9 维属性进度条（三组三色）
 │   ├── AttrRadar.tsx           # 9 维雷达图（纯 SVG，自动适应 9 轴）
 │   ├── PlayerCard.tsx          # 选手卡片（头像+属性条+雷达）
 │   ├── TeamCard.tsx            # 战队卡片（含 5 位置球员）
 │   ├── SeriesResultCard.tsx    # 单场/系列赛结果卡
+│   ├── SeriesBoard.tsx         # 系列赛 10 人战绩表（K/D/A 累计+场均评分）
+│   ├── PlayoffStepper.tsx      # 季后赛逐场模拟器（replay 回放 / live 实时 两模式）
+│   ├── DecisiveDialog.tsx      # 世界赛决胜局策略彩蛋弹窗（亮剑/奉献/常规）
 │   └── StandingsTable.tsx      # 积分榜表格
 ├── pages/                      # 页面组件（每个对应一个游戏阶段）
 │   ├── Menu.tsx                # 主菜单（新游戏/继续/版权声明）
 │   ├── CreatePlayer.tsx        # 创建选手（ID+位置+预览）
 │   ├── Inheritance.tsx         # ★ 继承 v2（9 位选手顺序抽取+锁定+替换惩罚）
 │   ├── SelectTeam.tsx          # 选战队（顶替该位置选手）
-│   ├── SeasonHub.tsx           # 赛季中心（含四赛事驱动+策略选择器）
+│   ├── SeasonHub.tsx           # 赛季中心（四赛事驱动 + 战绩条 + 逐场模拟入口）
 │   └── Result.tsx              # 结局页（成绩单+荣誉榜）
 └── utils/                      # 工具（随机 高斯 / 钳制 / 格式化 / 存储）
 ```
@@ -160,7 +171,9 @@ enRoll  = enPower × N(1, 0.12)
 ```
 > 玩家对局使用高斯比值法。AI 对 AI 对局仍使用 Sigmoid（`season.ts:27` `1/(1+exp(.../60))`）——这是待统一的遗留不一致。
 
-### E. 亮剑 / 奉献 策略（MSI/世界赛 BO5 赛点局，玩家主动选）
+### E. 亮剑 / 奉献 策略（世界赛淘汰赛决胜局彩蛋，2:2 时弹窗让玩家选）
+
+**触发方式**：世界赛（S赛）淘汰赛交互式会话中，玩家系列赛前四局打成 2:2 → 弹出抉择框（亮剑/奉献/常规）→ 选完才模拟第五局。**不再是常驻选项**（MSI 固定不使用策略）。
 
 **判定**（基于基础属性，策略不帮凑阈值）— `breakthrough.ts`：
 
@@ -238,8 +251,8 @@ menu → create → inherit → select-team → season-hub → result
 | `pool` | PoolEntry[] | 继承池（9 位候选） |
 | `idx` | number | 当前第几位候选（0~9） |
 | `slots` | Record<AttrKey, SlotValue> | 已锁定属性槽 |
-| `decisiveStrat` | Strat | MSI/世界赛关键局策略选择 |
 | `rerollsLeft` | number | 继承池重抽剩余次数 |
+| `worldsLive` | WorldsLive\|null | 世界赛淘汰赛交互会话（小组数据+KnockoutSession）；不持久化，中途退出则世界赛重来 |
 
 ### 5.3 存档结构（Types `GameSave`）
 

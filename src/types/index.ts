@@ -113,6 +113,19 @@ export interface GameResult {
   solokillTriggered: boolean; // 亮剑→单线击穿 是否触发
   teamfightCarryTriggered: boolean; // 奉献→团战游龙 是否触发
   duration: number; // 分钟
+  stats?: PlayerGameStat[]; // 本局双方 10 名选手的数据（含自建选手）
+}
+
+/** 单名选手在单局中的数据 */
+export interface PlayerGameStat {
+  playerId: string;
+  name: string;
+  teamId: string;
+  position: Position;
+  kills: number;
+  deaths: number;
+  assists: number;
+  rating: number;
 }
 
 export interface SeriesResult {
