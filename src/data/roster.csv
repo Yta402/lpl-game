@@ -1,0 +1,106 @@
+﻿战队ID,战队,全名,赛区,风格,队徽色,选手,位置,操作,反应,发育,配合,意识,开团,英雄池,心态,沟通,综合
+blg,BLG,Bilibili Gaming,LPL,打架队,#00a1d6,Bin,上单,95,94,97,85,82,80,82,79,84,86.75
+blg,BLG,Bilibili Gaming,LPL,打架队,#00a1d6,Xun,打野,92,86,84,98,94,90,94,95,96,91.625
+blg,BLG,Bilibili Gaming,LPL,打架队,#00a1d6,Knight,中单,98,97,95,92,89,88,99,91,90,93.625
+blg,BLG,Bilibili Gaming,LPL,打架队,#00a1d6,Viper,下路,88,89,85,90,92,85,99,98,91,90.75
+blg,BLG,Bilibili Gaming,LPL,打架队,#00a1d6,ON,辅助,95,95,75,98,94,98,98,80,96,91.625
+jdg,JDG,JD Gaming,LPL,运营流,#d4213d,Xiaoxu,上单,88,88,80,85,85,86,90,90,85,86.5
+jdg,JDG,JD Gaming,LPL,运营流,#d4213d,Junjia,打野,80,78,76,88,88,89,91,85,88,84.375
+jdg,JDG,JD Gaming,LPL,运营流,#d4213d,HongQ,中单,94,92,94,83,85,80,90,88,84,88.25
+jdg,JDG,JD Gaming,LPL,运营流,#d4213d,GALA,下路,96,98,98,90,92,84,88,85,91,91.375
+jdg,JDG,JD Gaming,LPL,运营流,#d4213d,Vampire,辅助,80,84,70,96,94,96,84,84,95,86
+tes,TES,Top Esports,LPL,打架队,#f3a01d,ZUIAN,上单,85,85,86,88,80,80,78,78,84,82.5
+tes,TES,Top Esports,LPL,打架队,#f3a01d,Tian,打野,88,82,78,98,94,90,88,70,96,86
+tes,TES,Top Esports,LPL,打架队,#f3a01d,Creme,中单,90,92,94,88,80,86,95,72,84,87.125
+tes,TES,Top Esports,LPL,打架队,#f3a01d,JackeyLove,下路,78,70,88,92,80,96,94,99,86,87.125
+tes,TES,Top Esports,LPL,打架队,#f3a01d,fengyue,辅助,80,80,78,92,84,94,86,80,88,84.25
+wbg,WBG,Weibo Gaming,LPL,快节奏,#ff5a5f,Zika,上单,84,86,88,78,79,91,82,80,78,83.5
+wbg,WBG,Weibo Gaming,LPL,快节奏,#ff5a5f,JieJie,打野,80,79,75,94,92,96,92,90,93,87.25
+wbg,WBG,Weibo Gaming,LPL,快节奏,#ff5a5f,Xiaohu,中单,80,86,80,96,94,96,92,99,95,90.375
+wbg,WBG,Weibo Gaming,LPL,快节奏,#ff5a5f,Elk,下路,92,96,94,82,80,80,88,84,81,87
+wbg,WBG,Weibo Gaming,LPL,快节奏,#ff5a5f,TheHank,辅助,80,71,70,92,91,88,84,90,92,83.25
+al,AL,Anyone's Legend,LPL,快节奏,#7c4dff,Flandre,上单,78,88,75,97,92,98,94,96,94,89.75
+al,AL,Anyone's Legend,LPL,快节奏,#7c4dff,Tarzan,打野,90,84,80,98,94,96,98,82,96,90.25
+al,AL,Anyone's Legend,LPL,快节奏,#7c4dff,Shanks,中单,88,90,88,92,80,80,82,78,86,84.75
+al,AL,Anyone's Legend,LPL,快节奏,#7c4dff,Hope,下路,80,85,84,91,88,78,84,72,90,82.75
+al,AL,Anyone's Legend,LPL,快节奏,#7c4dff,Kael,辅助,92,90,65,97,94,94,80,84,96,87
+t1,T1,T1,LCK,运营流,#e2012d,Doran,上单,80,75,78,92,90,88,88,99,91,86.25
+t1,T1,T1,LCK,运营流,#e2012d,Oner,打野,90,92,88,94,90,88,84,80,92,88.25
+t1,T1,T1,LCK,运营流,#e2012d,Faker,中单,88,94,82,96,96,98,99,98,96,93.875
+t1,T1,T1,LCK,运营流,#e2012d,Peyz,下路,94,96,98,80,86,80,94,90,83,89.75
+t1,T1,T1,LCK,运营流,#e2012d,Keria,辅助,96,96,76,92,88,94,99,76,90,89.625
+gen,GEN,Gen.G,LCK,运营流,#aa802b,Kiin,上单,88,92,90,90,97,94,96,86,94,91.625
+gen,GEN,Gen.G,LCK,运营流,#aa802b,Canyon,打野,94,88,98,90,90,82,88,80,90,88.75
+gen,GEN,Gen.G,LCK,运营流,#aa802b,Chovy,中单,97,94,99,92,88,82,98,85,90,91.875
+gen,GEN,Gen.G,LCK,运营流,#aa802b,Ruler,下路,90,92,90,88,96,80,94,90,92,90
+gen,GEN,Gen.G,LCK,运营流,#aa802b,Lehends,辅助,80,82,70,94,94,96,90,88,94,86.75
+hle,HLE,Hanwha Life Esports,LCK,打架队,#ff7a00,Zeus,上单,96,94,98,94,84,82,99,94,89,92.625
+hle,HLE,Hanwha Life Esports,LCK,打架队,#ff7a00,Kanavi,打野,92,84,99,79,82,84,94,80,80,86.75
+hle,HLE,Hanwha Life Esports,LCK,打架队,#ff7a00,Zeka,中单,85,74,89,99,80,86,92,88,90,86.625
+hle,HLE,Hanwha Life Esports,LCK,打架队,#ff7a00,Gumayusi,下路,88,88,88,92,92,92,96,92,92,91
+hle,HLE,Hanwha Life Esports,LCK,打架队,#ff7a00,Delight,辅助,85,78,70,94,80,98,80,86,87,83.875
+dk,DK,Dplus KIA,LCK,运营流,#1c3a8f,Siwoo,上单,92,90,88,86,86,90,96,80,86,88.5
+dk,DK,Dplus KIA,LCK,运营流,#1c3a8f,Lucid,打野,88,86,80,88,96,84,84,84,92,86.25
+dk,DK,Dplus KIA,LCK,运营流,#1c3a8f,ShowMaker,中单,90,84,90,96,98,94,98,90,97,92.5
+dk,DK,Dplus KIA,LCK,运营流,#1c3a8f,Smash,下路,90,89,96,92,88,82,92,84,90,89.125
+dk,DK,Dplus KIA,LCK,运营流,#1c3a8f,Career,辅助,86,82,70,90,86,82,80,86,88,82.75
+g2,G2,G2 Esports,LEC,打架队,#e6191e,BrokenBlade,上单,96,88,90,88,94,92,98,92,91,92.25
+g2,G2,G2 Esports,LEC,打架队,#e6191e,Yike,打野,88,93,78,85,81,80,84,90,83,84.875
+g2,G2,G2 Esports,LEC,打架队,#e6191e,Caps,中单,90,82,80,94,92,90,99,97,93,90.5
+g2,G2,G2 Esports,LEC,打架队,#e6191e,HansSama,下路,86,80,80,92,82,82,94,85,87,85.125
+g2,G2,G2 Esports,LEC,打架队,#e6191e,Mikyx,辅助,85,95,66,87,83,85,90,89,85,85
+fnc,FNC,Fnatic,LEC,快节奏,#ff5800,Oscarinin,上单,85,77,99,66,74,85,72,80,70,79.75
+fnc,FNC,Fnatic,LEC,快节奏,#ff5800,Razork,打野,85,87,77,92,75,78,63,78,84,79.375
+fnc,FNC,Fnatic,LEC,快节奏,#ff5800,Humanoid,中单,85,91,68,63,81,94,89,79,72,81.25
+fnc,FNC,Fnatic,LEC,快节奏,#ff5800,Noah,下路,85,68,82,92,76,91,88,74,84,82
+fnc,FNC,Fnatic,LEC,快节奏,#ff5800,Jun,辅助,85,72,63,89,99,87,76,66,94,79.625
+koi,KOI,KOI,LEC,运营流,#5eff00,Myrwn,上单,85,75,73,84,77,92,84,70,80,80
+koi,KOI,KOI,LEC,运营流,#5eff00,Sheo,打野,85,72,83,76,67,68,90,85,72,78.25
+koi,KOI,KOI,LEC,运营流,#5eff00,Saken,中单,85,99,89,97,69,81,78,77,83,84.375
+koi,KOI,KOI,LEC,运营流,#5eff00,Supa,下路,85,82,79,82,87,78,61,75,84,78.625
+koi,KOI,KOI,LEC,运营流,#5eff00,Trymbi,辅助,85,69,80,77,73,93,69,78,75,78
+fly,FLY,FlyQuest,LCS,打架队,#00b4d8,Bwipo,上单,85,81,61,81,73,67,79,85,77,76.5
+fly,FLY,FlyQuest,LCS,打架队,#00b4d8,Spica,打野,85,89,78,76,71,82,63,83,74,78.375
+fly,FLY,FlyQuest,LCS,打架队,#00b4d8,Jensen,中单,85,75,99,91,73,95,76,73,82,83.375
+fly,FLY,FlyQuest,LCS,打架队,#00b4d8,Massu,下路,85,68,76,87,81,79,87,65,84,78.5
+fly,FLY,FlyQuest,LCS,打架队,#00b4d8,Busio,辅助,85,86,71,79,86,69,76,87,82,79.875
+tl,TL,Team Liquid,LCS,运营流,#0a1c3d,Impact,上单,85,91,85,88,82,77,64,82,85,81.75
+tl,TL,Team Liquid,LCS,运营流,#0a1c3d,Umti,打野,85,69,84,96,82,77,81,73,89,80.875
+tl,TL,Team Liquid,LCS,运营流,#0a1c3d,APA,中单,85,88,80,80,69,88,72,77,74,79.875
+tl,TL,Team Liquid,LCS,运营流,#0a1c3d,Yeon,下路,85,73,94,70,71,85,90,86,70,81.75
+tl,TL,Team Liquid,LCS,运营流,#0a1c3d,CoreJJ,辅助,85,92,76,96,70,83,82,75,83,82.375
+c9,C9,Cloud9,LCS,快节奏,#1a6fb0,Thanatos,上单,85,82,81,90,77,88,69,68,84,80
+c9,C9,Cloud9,LCS,快节奏,#1a6fb0,Blaber,打野,85,81,78,81,99,78,63,68,90,79.125
+c9,C9,Cloud9,LCS,快节奏,#1a6fb0,Vladi,中单,85,73,99,99,81,72,79,82,90,83.75
+c9,C9,Cloud9,LCS,快节奏,#1a6fb0,Sniper,下路,85,77,91,58,57,91,93,81,58,79.125
+c9,C9,Cloud9,LCS,快节奏,#1a6fb0,Zven,辅助,85,80,86,88,71,94,78,78,80,82.5
+psg,PSG,PSG Talon,PCS,快节奏,#004b93,Azhi,上单,85,75,66,99,80,96,99,99,90,87.375
+psg,PSG,PSG Talon,PCS,快节奏,#004b93,Kongyue,打野,85,75,94,88,61,72,65,73,74,76.625
+psg,PSG,PSG Talon,PCS,快节奏,#004b93,Maple,中单,85,49,82,96,99,66,65,72,98,76.75
+psg,PSG,PSG Talon,PCS,快节奏,#004b93,Betty,下路,85,56,74,83,68,84,70,73,76,74.125
+psg,PSG,PSG Talon,PCS,快节奏,#004b93,Woody,辅助,85,78,57,85,79,73,83,66,82,75.75
+gam,GAM,GAM Esports,VCS,打架队,#d6202a,Kiaya,上单,85,52,72,82,82,92,89,68,82,77.75
+gam,GAM,GAM Esports,VCS,打架队,#d6202a,Levi,打野,85,88,88,76,76,64,80,81,76,79.75
+gam,GAM,GAM Esports,VCS,打架队,#d6202a,Froggy,中单,85,58,87,72,83,99,56,77,78,77.125
+gam,GAM,GAM Esports,VCS,打架队,#d6202a,Slayder,下路,85,79,63,86,84,64,81,70,85,76.5
+gam,GAM,GAM Esports,VCS,打架队,#d6202a,Easylove,辅助,85,83,65,73,84,82,71,96,78,79.875
+kt,KT,KT Rolster,LCK,快节奏,#ff0000,PerfecT,上单,88,86,82,80,90,82,82,80,85,83.75
+kt,KT,KT Rolster,LCK,快节奏,#ff0000,Pyosik,打野,85,82,88,88,90,86,82,84,89,85.625
+kt,KT,KT Rolster,LCK,快节奏,#ff0000,Bdd,中单,86,84,86,82,88,84,86,84,85,85
+kt,KT,KT Rolster,LCK,快节奏,#ff0000,Bull,下路,84,86,82,84,86,80,84,82,85,83.5
+kt,KT,KT Rolster,LCK,快节奏,#ff0000,Berdol,辅助,80,84,78,88,86,90,80,86,87,84
+we,WE,Team WE,LPL,运营流,#ffe600,ZDZ,上单,82,80,82,80,82,82,80,82,81,81.25
+we,WE,Team WE,LPL,运营流,#ffe600,Heng,打野,82,82,80,86,84,86,80,82,85,82.75
+we,WE,Team WE,LPL,运营流,#ffe600,Mole,中单,84,82,82,82,82,82,84,80,82,82.25
+we,WE,Team WE,LPL,运营流,#ffe600,Stardust,下路,82,82,82,82,80,80,82,82,81,81.5
+we,WE,Team WE,LPL,运营流,#ffe600,Iwandy,辅助,80,80,76,86,84,86,80,82,85,81.75
+ig,IG,Invictus Gaming,LPL,打架队,#d1d1d1,ZS,上单,80,82,82,78,80,84,80,80,79,80.75
+ig,IG,Invictus Gaming,LPL,打架队,#d1d1d1,ahhh,打野,80,80,80,84,82,86,80,82,83,81.75
+ig,IG,Invictus Gaming,LPL,打架队,#d1d1d1,cryin,中单,84,82,82,82,82,80,84,82,82,82.25
+ig,IG,Invictus Gaming,LPL,打架队,#d1d1d1,xiaoyueji,下路,82,82,82,82,80,80,82,82,81,81.5
+ig,IG,Invictus Gaming,LPL,打架队,#d1d1d1,Lucy,辅助,78,78,76,84,82,84,80,80,83,80.25
+lgd,LGD,LGD Gaming,LPL,运营流,#c8102e,FearMeng,上单,78,80,80,78,80,82,80,80,79,79.75
+lgd,LGD,LGD Gaming,LPL,运营流,#c8102e,Shadow,打野,80,80,80,84,82,84,80,80,83,81.25
+lgd,LGD,LGD Gaming,LPL,运营流,#c8102e,focus,中单,82,80,80,80,80,80,82,80,80,80.5
+lgd,LGD,LGD Gaming,LPL,运营流,#c8102e,Timmy,下路,80,80,80,80,80,80,80,80,80,80
+lgd,LGD,LGD Gaming,LPL,运营流,#c8102e,Lvy,辅助,78,78,76,84,80,84,78,80,82,79.75
